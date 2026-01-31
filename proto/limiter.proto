@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package limiter;
+option go_package = "github.com/yourname/rate-limiter/proto";
+
+// The Service Definition
+service RateLimiter {
+  rpc Allow (AllowRequest) returns (AllowResponse);
+}
+
+// The Input
+message AllowRequest {
+  string user_id = 1;      // Who is making the request?
+  string action_key = 2;   // What are they doing?
+  int64 capacity = 3;      // Max burst size
+  int64 refill_rate = 4;   // Tokens per second
+}
+
+// The Output
+message AllowResponse {
+  bool allowed = 1;        // True if request can proceed
+}
