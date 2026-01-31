@@ -36,39 +36,48 @@ func main() {
 	serverNames := []string{"Server A (50051)", "Server B (50052)"}
 
 	// 2. Define test constraints
-	userID := "distributed_test_user"
+	userID := "distributed_test_user_2"
 	capacity := int64(5)
 	refillRate := int64(1)
 
 	log.Printf("--- STARTING DISTRIBUTED TEST for %s ---", userID)
 	log.Printf("Traffic will be split between %v", serverNames)
 
-	// 3. Send 10 requests rapidly
-	for i := 1; i <= 10; i++ {
-		// --- MANUAL LOAD BALANCER ---
-		// Randomly pick index 0 or 1
-		targetIndex := rand.Intn(len(clients))
-		selectedClient := clients[targetIndex]
-		selectedServerName := serverNames[targetIndex]
+	sendRequest := func(requestIndex int) {
+		// Manual Load Balancer: Randomly pick a server
+		idx := rand.Intn(len(clients))
+		client := clients[idx]
+		serverName := serverNames[idx]
 
-		resp, err := selectedClient.Allow(context.Background(), &pb.AllowRequest{
+		// Make the gRPC Call
+		resp, err := client.Allow(context.Background(), &pb.AllowRequest{
 			UserId:     userID,
 			ActionKey:  "login",
 			Capacity:   capacity,
 			RefillRate: refillRate,
 		})
 
+		// Log the result
 		if err != nil {
-			log.Printf("Request %d -> %s: RPC Error: %v", i, selectedServerName, err)
+			log.Printf("Request %d -> %s: RPC Error: %v", requestIndex, serverName, err)
 		} else {
 			status := "❌ DENIED"
 			if resp.Allowed {
 				status = "✅ ALLOWED"
 			}
-			// We format the log to show WHICH server gave the answer
-			fmt.Printf("Request %d -> %s: %s\n", i, selectedServerName, status)
+			fmt.Printf("Request %d -> %s: %s\n", requestIndex, serverName, status)
 		}
-
-		time.Sleep(100 * time.Millisecond)
 	}
+
+	// 3. Send 10 requests rapidly
+	for i := 1; i <= 10; i++ {
+		// --- MANUAL LOAD BALANCER ---
+		// Randomly pick index 0 or 1
+		sendRequest(i)
+
+		// time.Sleep(100 * time.Millisecond)
+	}
+
+	time.Sleep(1000 * time.Millisecond)
+	sendRequest(11)
 }
