@@ -39,11 +39,14 @@ func main() {
 	// 1. Parse the port from command line flags
 	// If no flag is provided, it defaults to "50051"
 	port := flag.String("port", "50051", "The server port")
+
+	// ADD THIS: Allow Redis address to be configured
+	redisAddr := flag.String("redis_addr", "localhost:6379", "Address of Redis instance")
 	flag.Parse()
 
 	// 2. Connect to Redis
 	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: *redisAddr,
 	})
 
 	// Test Connection

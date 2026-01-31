@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # The Shared Brain
+  redis:
+    image: redis:alpine
+    container_name: redis_container
+    ports:
+      - "6379:6379"
+    networks:
+      - limiter-net
+
+  # Server A (The Builder)
+  # This service performs the build and tags the image "my-rate-limiter"
+  limiter-1:
+    build: .
+    image: my-rate-limiter:latest # <--- We name the image here
+    container_name: limiter_service_1
+    ports:
+      - "50051:50051"
+    environment:
+      - REDIS_ADDR=redis:6379
+    command: ["./rate-limiter", "--port=50051", "--redis_addr=redis:6379"]
+    depends_on:
+      - redis
+    networks:
+      - limiter-net
+
+  # Server B (The Consumer)
+  # This service REUSES the image built above. No compiling needed!
+  limiter-2:
+    image: my-rate-limiter:latest # <--- Reusing the exact same image
+    container_name: limiter_service_2
+    ports:
+      - "50052:50052"
+    environment:
+      - REDIS_ADDR=redis:6379
+    command: ["./rate-limiter", "--port=50052", "--redis_addr=redis:6379"]
+    depends_on:
+      - redis
+      - limiter-1 # Wait for limiter-1 to ensure image is ready (optional but safer)
+    networks:
+      - limiter-net
+
+networks:
+  limiter-net:
+    driver: bridge

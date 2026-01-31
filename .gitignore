@@ -68,3 +68,34 @@ luac.out
 *.rdb
 
 # End of https://www.toptal.com/developers/gitignore/api/go,lua,redis
+
+
+# Generated Protocol Buffer files
+*.pb.go
+*.pb.cc
+*.pb.h
+*.pb.java
+*_pb2.py
+*_pb2.pyi
+*.pb.dart
+*.pb.js
+*.pb.d.ts
+
+# Generated documentation
+*.pb.html
+*.pb.txt
+
+# Generated directories (adjust based on your output path)
+/generated/
+/pb/
+
+# Build artifacts and dependencies
+/vendor/
+/node_modules/
+.build/
+*.tmp
+
+# IDE specific
+.idea/
+.vscode/
+*.user

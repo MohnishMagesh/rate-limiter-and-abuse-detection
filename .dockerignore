@@ -1,0 +1,5 @@
+# .dockerignore
+.git
+bin
+cmd/client/client # if you built a binary locally
+rate-limiter      # if you built a binary locally

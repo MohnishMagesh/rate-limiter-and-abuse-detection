@@ -36,7 +36,7 @@ func main() {
 	serverNames := []string{"Server A (50051)", "Server B (50052)"}
 
 	// 2. Define test constraints
-	userID := "distributed_test_user_2"
+	userID := "distributed_test_user"
 	capacity := int64(5)
 	refillRate := int64(1)
 

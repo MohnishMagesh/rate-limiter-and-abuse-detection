@@ -7,6 +7,11 @@ docker rm <container_id>
 go run cmd/server/main.go
 go run cmd/client/main.go
 
+after adding docker
+docker compose up --build
+docker compose down
+
+
 Key Notes
 Rate limiting is done by User ID and action
 Example:- Redis Key: rate_limit:User_123:login 
