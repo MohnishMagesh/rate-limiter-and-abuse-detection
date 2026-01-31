@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -16,34 +17,31 @@ import (
 type server struct {
 	pb.UnimplementedRateLimiterServer
 	rdb       *redis.Client
-	scriptSHA string // The ID of the script in Redis
+	scriptSHA string
 }
 
 func (s *server) Allow(ctx context.Context, req *pb.AllowRequest) (*pb.AllowResponse, error) {
-	// Create a unique key for this user + action combo
 	key := fmt.Sprintf("rate_limit:%s:%s", req.UserId, req.ActionKey)
-
-	// Use current time in Unix Seconds
 	now := time.Now().Unix()
 
-	// Execute the Lua Script
-	// Keys: [key]
-	// Args: [capacity, refill_rate, requested_tokens, current_time]
 	result, err := s.rdb.EvalSha(ctx, s.scriptSHA, []string{key}, req.Capacity, req.RefillRate, 1, now).Result()
 
 	if err != nil {
-		// FAIL OPEN strategy: If Redis is down, allow traffic to prevent outage
 		log.Printf("Redis error: %v", err)
 		return &pb.AllowResponse{Allowed: true}, nil
 	}
 
-	// 1 means allowed, 0 means denied
 	allowed := result.(int64) == 1
 	return &pb.AllowResponse{Allowed: allowed}, nil
 }
 
 func main() {
-	// 1. Connect to Redis
+	// 1. Parse the port from command line flags
+	// If no flag is provided, it defaults to "50051"
+	port := flag.String("port", "50051", "The server port")
+	flag.Parse()
+
+	// 2. Connect to Redis
 	rdb := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
@@ -53,16 +51,17 @@ func main() {
 		log.Fatalf("Could not connect to Redis: %v", err)
 	}
 
-	// 2. Load Lua Script (Pre-load for performance)
-	// We load it once, get the SHA, and use the SHA later.
+	// 3. Load Lua Script
 	sha, err := rdb.ScriptLoad(context.Background(), assets.TokenBucketLua).Result()
 	if err != nil {
 		log.Fatalf("Failed to load Lua script: %v", err)
 	}
-	log.Printf("Lua script loaded, SHA: %s", sha)
+	// Log which port we are loading the script on
+	log.Printf("Server on port %s: Lua script loaded, SHA: %s", *port, sha)
 
-	// 3. Start gRPC Server
-	lis, err := net.Listen("tcp", ":50051")
+	// 4. Start gRPC Server on the Dynamic Port
+	addr := fmt.Sprintf(":%s", *port)
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
@@ -73,7 +72,7 @@ func main() {
 		scriptSHA: sha,
 	})
 
-	log.Println("Rate Limiter Service running on :50051")
+	log.Printf("Rate Limiter Service running on %s", addr)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}

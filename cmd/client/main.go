@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math/rand" // <--- Added for random load balancing
 	"time"
 
 	pb "github.com/mmagesh/rate-limiter/proto"
@@ -11,26 +13,45 @@ import (
 )
 
 func main() {
-	// 1. Connect to the Rate Limiter Service
-	// We use "insecure" because we are on localhost and haven't set up TLS certificates
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// 1. Connect to Multiple Rate Limiters (Simulating a Distributed Fleet)
+
+	// Server A (Port 50051)
+	conn1, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Did not connect: %v", err)
+		log.Fatalf("Did not connect to 50051: %v", err)
 	}
-	defer conn.Close()
-	client := pb.NewRateLimiterClient(conn)
+	defer conn1.Close()
+	client1 := pb.NewRateLimiterClient(conn1)
 
-	// 2. Define our test constraints
-	userID := "test_user_123"
-	capacity := int64(5)   // Max 5 tokens
-	refillRate := int64(1) // Add 1 token every second
+	// Server B (Port 50052)
+	conn2, err := grpc.NewClient("localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Did not connect to 50052: %v", err)
+	}
+	defer conn2.Close()
+	client2 := pb.NewRateLimiterClient(conn2)
 
-	log.Printf("--- STARTING BURST TEST for %s ---", userID)
-	log.Printf("Capacity: %d, Rate: %d/sec", capacity, refillRate)
+	// Create a list of available clients
+	clients := []pb.RateLimiterClient{client1, client2}
+	serverNames := []string{"Server A (50051)", "Server B (50052)"}
+
+	// 2. Define test constraints
+	userID := "distributed_test_user"
+	capacity := int64(5)
+	refillRate := int64(1)
+
+	log.Printf("--- STARTING DISTRIBUTED TEST for %s ---", userID)
+	log.Printf("Traffic will be split between %v", serverNames)
 
 	// 3. Send 10 requests rapidly
 	for i := 1; i <= 10; i++ {
-		resp, err := client.Allow(context.Background(), &pb.AllowRequest{
+		// --- MANUAL LOAD BALANCER ---
+		// Randomly pick index 0 or 1
+		targetIndex := rand.Intn(len(clients))
+		selectedClient := clients[targetIndex]
+		selectedServerName := serverNames[targetIndex]
+
+		resp, err := selectedClient.Allow(context.Background(), &pb.AllowRequest{
 			UserId:     userID,
 			ActionKey:  "login",
 			Capacity:   capacity,
@@ -38,33 +59,16 @@ func main() {
 		})
 
 		if err != nil {
-			log.Printf("RPC Error: %v", err)
+			log.Printf("Request %d -> %s: RPC Error: %v", i, selectedServerName, err)
 		} else {
+			status := "❌ DENIED"
 			if resp.Allowed {
-				log.Printf("Request %d: ✅ ALLOWED", i)
-			} else {
-				log.Printf("Request %d: ❌ DENIED", i)
+				status = "✅ ALLOWED"
 			}
+			// We format the log to show WHICH server gave the answer
+			fmt.Printf("Request %d -> %s: %s\n", i, selectedServerName, status)
 		}
-		// Minimal sleep to ensure we don't hit network race conditions on localhost
-		time.Sleep(10 * time.Millisecond)
-	}
 
-	// 4. Test the Refill
-	log.Println("--- WAITING 3 SECONDS (Refilling...) ---")
-	time.Sleep(3 * time.Second)
-
-	log.Println("--- SENDING NEW REQUEST ---")
-	resp, _ := client.Allow(context.Background(), &pb.AllowRequest{
-		UserId:     userID,
-		ActionKey:  "login",
-		Capacity:   capacity,
-		RefillRate: refillRate,
-	})
-
-	if resp.Allowed {
-		log.Println("Request 11: ✅ ALLOWED (Bucket refilled!)")
-	} else {
-		log.Println("Request 11: ❌ DENIED (Something is wrong)")
+		time.Sleep(100 * time.Millisecond)
 	}
 }
