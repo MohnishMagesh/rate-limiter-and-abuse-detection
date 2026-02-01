@@ -14,9 +14,9 @@ services:
     image: prom/prometheus
     container_name: prometheus
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml # Mount our config
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
-      - "9090:9090" # Web UI port
+      - "9090:9090" # Web UI port for prometheus metrics
     networks:
       - limiter-net
 
@@ -27,7 +27,7 @@ services:
     container_name: limiter_service_1
     ports:
       - "50051:50051"
-      - "2112:2112" # <--- Expose metrics port
+      - "2112:2112" # Prometheus port
     environment:
       - REDIS_ADDR=redis:6379
     command: ["./rate-limiter", "--port=50051", "--redis_addr=redis:6379", "--metrics_port=2112"]
@@ -42,7 +42,7 @@ services:
     container_name: limiter_service_2
     ports:
       - "50052:50052"
-      - "2113:2112" # <--- Map host 2113 to container 2112 (avoid collision on host)
+      - "2113:2112"
     environment:
       - REDIS_ADDR=redis:6379
     command: ["./rate-limiter", "--port=50052", "--redis_addr=redis:6379", "--metrics_port=2112"]

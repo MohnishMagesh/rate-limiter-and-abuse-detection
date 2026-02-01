@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// --- METRICS DEFINITION ---
+// Prometheus Metrics
 var (
 	requestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -83,8 +83,7 @@ func (s *server) Allow(ctx context.Context, req *pb.AllowRequest) (*pb.AllowResp
 		return &pb.AllowResponse{Allowed: true}, nil
 
 	case -1: // BANNED (Abuse Detected)
-		// We log this prominently
-		log.Printf("⛔ ABUSE DETECTED: User %s is in JAIL", req.UserId)
+		log.Printf("ABUSE DETECTED: User %s is in JAIL", req.UserId)
 		requestsTotal.WithLabelValues("banned", req.ActionKey).Inc()
 		return &pb.AllowResponse{Allowed: false}, nil
 
@@ -100,7 +99,6 @@ func main() {
 	metricsPort := flag.String("metrics_port", "2112", "Port to expose Prometheus metrics")
 	flag.Parse()
 
-	// 1. Start Metrics Server
 	go func() {
 		addr := fmt.Sprintf(":%s", *metricsPort)
 		log.Printf("📊 Metrics server listening on %s/metrics", addr)
@@ -110,7 +108,6 @@ func main() {
 		}
 	}()
 
-	// 2. Connect to Redis
 	rdb := redis.NewClient(&redis.Options{
 		Addr: *redisAddr,
 	})
@@ -119,15 +116,14 @@ func main() {
 		log.Fatalf("Could not connect to Redis: %v", err)
 	}
 
-	// 3. Load Lua Script
-	// NOTE: Since the script content changed, this will generate a NEW SHA hash.
+	// Load Lua Script
 	sha, err := rdb.ScriptLoad(context.Background(), assets.TokenBucketLua).Result()
 	if err != nil {
 		log.Fatalf("Failed to load Lua script: %v", err)
 	}
 	log.Printf("Server on port %s: Lua script loaded (SHA: %s)", *port, sha)
 
-	// 4. Start gRPC Server
+	// Start gRPC Server
 	addr := fmt.Sprintf(":%s", *port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {

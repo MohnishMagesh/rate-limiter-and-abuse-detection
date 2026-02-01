@@ -17,12 +17,12 @@ local now = tonumber(ARGV[4])
 local max_violations = tonumber(ARGV[5])
 local jail_time = tonumber(ARGV[6])
 
--- 1. CHECK JAIL (Is the user currently banned?)
+-- CHECK JAIL (Is the user currently banned?)
 if redis.call("EXISTS", jail_key) == 1 then
     return -1 -- Code for "BANNED"
 end
 
--- 2. TOKEN BUCKET LOGIC
+-- TOKEN BUCKET LOGIC
 local info = redis.call("HMGET", key, "tokens", "last_refill")
 local tokens = tonumber(info[1])
 local last_refill = tonumber(info[2])
@@ -40,10 +40,8 @@ local allowed = 0
 if tokens >= requested then
   allowed = 1
   tokens = tokens - requested
-  -- Optional: If allowed, we could decrease violation count (Forgiveness), 
-  -- but we'll keep it strict for now.
 else
-  -- 3. ABUSE DETECTION (User was Denied)
+  -- ABUSE DETECTION (User was Denied)
   allowed = 0
   
   -- Increment violation counter

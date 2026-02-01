@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand" // <--- Added for random load balancing
+	"math/rand"
 	"time"
 
 	pb "github.com/mmagesh/rate-limiter/proto"
@@ -13,8 +13,6 @@ import (
 )
 
 func main() {
-	// 1. Connect to Multiple Rate Limiters (Simulating a Distributed Fleet)
-
 	// Server A (Port 50051)
 	conn1, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -31,11 +29,9 @@ func main() {
 	defer conn2.Close()
 	client2 := pb.NewRateLimiterClient(conn2)
 
-	// Create a list of available clients
 	clients := []pb.RateLimiterClient{client1, client2}
 	serverNames := []string{"Server A (50051)", "Server B (50052)"}
 
-	// 2. Define test constraints
 	userID := "distributed_test_user"
 	capacity := int64(5)
 	refillRate := int64(1)
@@ -44,7 +40,7 @@ func main() {
 	log.Printf("Traffic will be split between %v", serverNames)
 
 	sendRequest := func(requestIndex int) {
-		// Manual Load Balancer: Randomly pick a server
+		// Manual Load Balancer: Randomly pick a server (between 50051 and 50052)
 		idx := rand.Intn(len(clients))
 		client := clients[idx]
 		serverName := serverNames[idx]
@@ -69,13 +65,8 @@ func main() {
 		}
 	}
 
-	// 3. Send 10 requests rapidly
 	for i := 1; i <= 9; i++ {
-		// --- MANUAL LOAD BALANCER ---
-		// Randomly pick index 0 or 1
 		sendRequest(i)
-
-		// time.Sleep(100 * time.Millisecond)
 	}
 
 	time.Sleep(1000 * time.Millisecond)
