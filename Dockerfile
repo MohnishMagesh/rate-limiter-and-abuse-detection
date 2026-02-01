@@ -1,31 +1,27 @@
-# Stage 1: Builder (Compiles the Go code)
+# Stage 1: Builder
 FROM golang:1.24.5-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependency files first (for better caching)
+# Copy dependency files first
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source code
+# Copy source
 COPY . .
 
 # Build the binary
-# -o main: output file name
-# cmd/server/main.go: input file
-RUN go build -o rate-limiter cmd/server/main.go
+# 1. CGO_ENABLED=0: Disables C bindings (Faster build, purely static binary)
+# 2. -ldflags="-w -s": Strips debug information (Makes binary smaller)
+RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o rate-limiter cmd/server/main.go
 
-# Stage 2: Runner (Tiny Alpine image)
+# Stage 2: Runner
 FROM alpine:latest
 
 WORKDIR /root/
 
-# Copy only the compiled binary from the builder stage
 COPY --from=builder /app/rate-limiter .
 
-# Expose the gRPC port
 EXPOSE 50051
 
-# Default command: run the binary
-# We can override flags in docker-compose
 CMD ["./rate-limiter"]

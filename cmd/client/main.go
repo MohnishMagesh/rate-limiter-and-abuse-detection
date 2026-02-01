@@ -70,7 +70,7 @@ func main() {
 	}
 
 	// 3. Send 10 requests rapidly
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= 9; i++ {
 		// --- MANUAL LOAD BALANCER ---
 		// Randomly pick index 0 or 1
 		sendRequest(i)
