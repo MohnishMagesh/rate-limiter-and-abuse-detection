@@ -57,9 +57,9 @@ func main() {
 		if err != nil {
 			log.Printf("Request %d -> %s: RPC Error: %v", requestIndex, serverName, err)
 		} else {
-			status := "❌ DENIED"
+			status := "DENIED"
 			if resp.Allowed {
-				status = "✅ ALLOWED"
+				status = "ALLOWED"
 			}
 			fmt.Printf("Request %d -> %s: %s\n", requestIndex, serverName, status)
 		}
